@@ -143,7 +143,6 @@ namespace dmz {
          Log _log;
          Handle _flagHandle;
          Handle _defaultHandle;
-         Vector _offset;
          Handle _hil;
          
          HashTableStringTemplate<ParticleEffectStruct> _particleEffectTable;
@@ -151,8 +150,8 @@ namespace dmz {
          HashTableHandleTemplate<DefStruct> _defTable;
          HashTableHandleTemplate<ObjectStruct> _objectTable;
          
-         osg::ref_ptr<osg::Geode> particleGeode;
-         osg::ref_ptr<osgParticle::ParticleSystem> particleSystem;
+         osg::ref_ptr<osg::Geode> _particleGeode;
+         osg::ref_ptr<osgParticle::ParticleSystem> _particleSystem;
 
          RenderModuleCoreOSG *_core;
          ParticleEffectStruct _noParticleEffect;

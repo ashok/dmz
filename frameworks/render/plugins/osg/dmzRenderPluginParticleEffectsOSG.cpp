@@ -16,7 +16,6 @@
 #include <osgParticle/FluidFrictionOperator>
 #include <osgParticle/FluidProgram>
 #include <osgParticle/ModularEmitter>
-//#include <osgParticle/ModularProgram>
 #include <osgParticle/MultiSegmentPlacer>
 #include <osgParticle/ParticleSystemUpdater>
 #include <osgParticle/RadialShooter>
@@ -41,7 +40,12 @@ dmz::RenderPluginParticleEffectsOSG::RenderPluginParticleEffectsOSG (
 dmz::RenderPluginParticleEffectsOSG::~RenderPluginParticleEffectsOSG () {
    
    _noParticleEffect.particleEffect = 0;
-
+   _particleEffectTable.empty ();
+   _typeTable.clear ();
+   _defTable.empty ();
+   _objectTable.empty ();
+  // _particleGeode.delete;
+  // _particleSystem.delete;
 }
 
 
@@ -113,7 +117,7 @@ dmz::RenderPluginParticleEffectsOSG::create_object (
             if (g) { 
             
                g->addChild (os->particleEffect.get ());
-               _core->get_scene ()->addChild (particleGeode.get ());
+               _core->get_scene ()->addChild (_particleGeode.get ());
             }
          }
       }
@@ -320,7 +324,7 @@ dmz::RenderPluginParticleEffectsOSG::_create_particle_effect (Config &particle_c
    particle.setLifeTime (65); // seconds
    particle.setMass (0.01); // in kilograms
    
-   particleSystem = new osgParticle::ParticleSystem;
+   _particleSystem = new osgParticle::ParticleSystem;
    
    osg::ref_ptr<osgParticle::ParticleSystemUpdater> particleSystemUpdater = 
       new osgParticle::ParticleSystemUpdater;
@@ -339,7 +343,6 @@ dmz::RenderPluginParticleEffectsOSG::_create_particle_effect (Config &particle_c
    osg::ref_ptr<osgParticle::AccelOperator> acceleratorOp 
       = new osgParticle::AccelOperator;
     
-   // reading offset
    if (particle_config.lookup_config ("offset", config)) {
       
       const Vector Value = config_to_vector (config);
@@ -350,8 +353,6 @@ dmz::RenderPluginParticleEffectsOSG::_create_particle_effect (Config &particle_c
       _log.info << "particle offset:" << Value << endl;
    }
 
-
-   // reading particle size
    if (particle_config.lookup_config ("particle.size", config)) {
       
       const Float32 MaximumSizeValue (config_to_float32 ("maximum", config, 1.0));
@@ -361,7 +362,7 @@ dmz::RenderPluginParticleEffectsOSG::_create_particle_effect (Config &particle_c
          << ", minimum size:" << MinimumSizeValue << endl;
       particle.setSizeRange (osgParticle::rangef (MinimumSizeValue,MaximumSizeValue));
    }
-   // reading particle
+
    if (particle_config.lookup_config ("particle.alpha", config)) {
       
       const Float32 MaximumAlphaValue (config_to_float32 ("maximum", config, 1.0));
@@ -375,7 +376,7 @@ dmz::RenderPluginParticleEffectsOSG::_create_particle_effect (Config &particle_c
    
    osg::Vec4 ColorMinimum (0.0, 0.0, 0.0, 0.0);
    osg::Vec4 ColorMaximum (1.0, 1.0, 1.0, 1.0);
-   
+
    if (particle_config.lookup_config ("particle.color", config)) {
 
       Config colorConfig;
@@ -402,34 +403,29 @@ dmz::RenderPluginParticleEffectsOSG::_create_particle_effect (Config &particle_c
    
    particle.setColorRange(
       osgParticle::rangev4 (ColorMinimum, ColorMaximum));  
-   
-   // reading particle
    if (particle_config.lookup_config ("particle.lifetime", config)) {
       
       const Float32 LifetimeValue (config_to_float32 ("seconds", config, 1.0));
       
       _log.info << "particle lifetime (seconds):" << LifetimeValue << endl;
-      particle.setLifeTime (LifetimeValue); // seconds
+      particle.setLifeTime (LifetimeValue);
    }
    
-   // reading particle
    if (particle_config.lookup_config ("particle.mass", config)) {
       
       const Float32 MassValue (config_to_float32 ("kilograms", config, 1.0));
       
       _log.info << "particle mass (kilograms):" << MassValue << endl;
-      particle.setMass (MassValue); // in kilograms
+      particle.setMass (MassValue);
    }
 
-   // reading particle
    if (particle_config.lookup_config ("particle.radius", config)) {
       
       const Float32 RadiusValue (config_to_float32 ("meters", config, 1.0));
       
       _log.info << "particle radius (meters):" << RadiusValue << endl;
-      particle.setRadius (RadiusValue); // in meters
+      particle.setRadius (RadiusValue);
 
-      // reading particle
       if ( particle_config.lookup_config ("particle.density", config)) {
          
          const Float32 DensityValue (
@@ -444,8 +440,6 @@ dmz::RenderPluginParticleEffectsOSG::_create_particle_effect (Config &particle_c
       }
    }
 
-
-   // reading particle
    if ( particle_config.lookup_config ("plume.emission", config)) {
       
       const Int32 minimumEmissionValue (config_to_int32 ("minimum", config, 5));
@@ -456,7 +450,6 @@ dmz::RenderPluginParticleEffectsOSG::_create_particle_effect (Config &particle_c
       randomRateCounter->setRateRange (minimumEmissionValue, maximumEmissionValue); 
    }   
 
-   // reading particle
    if ( particle_config.lookup_config ("plume.speed", config)) {
       
       const Int32 distanceValue (config_to_int32 ("meters", config, 5));
@@ -467,7 +460,6 @@ dmz::RenderPluginParticleEffectsOSG::_create_particle_effect (Config &particle_c
       particleRadialShooter->setInitialSpeedRange (distanceValue, timeValue); 
    }   
    
-   // reading particle
    if ( particle_config.lookup_config ("plume.shooter", config)) {
       
       const Float32 thetaMinimumValue (config_to_float32 ("minimum", config, 0.0));
@@ -478,7 +470,6 @@ dmz::RenderPluginParticleEffectsOSG::_create_particle_effect (Config &particle_c
       particleRadialShooter->setThetaRange (thetaMinimumValue, thetaMaximumValue); 
    }      
    
-   // reading particle
    if ( particle_config.lookup_config ("plume.gravity", config)) {
       
       const Float32 gravityValue (config_to_float32 ("value", config, -2.0));
@@ -487,7 +478,6 @@ dmz::RenderPluginParticleEffectsOSG::_create_particle_effect (Config &particle_c
       acceleratorOp->setToGravity (gravityValue); 
    }      
    
-   // reading particle
    if ( particle_config.lookup_config ("plume.placer", config)) {
       
       Config points;
@@ -526,8 +516,7 @@ dmz::RenderPluginParticleEffectsOSG::_create_particle_effect (Config &particle_c
                << endl;
             _particleEffectTable.store (foundFile, result);
             
-            // Set the attributes 'texture', 'emmisive' and 'lighting'
-            particleSystem->setDefaultAttributes (
+            _particleSystem->setDefaultAttributes (
                foundFile.get_buffer (), false, false);
             
          }
@@ -549,18 +538,17 @@ dmz::RenderPluginParticleEffectsOSG::_create_particle_effect (Config &particle_c
    }
    else { _log.info << "Failed finding resource: " << ResourceName << endl; }
 
-   particleSystem->setParticleScaleReferenceFrame (
+   _particleSystem->setParticleScaleReferenceFrame (
       osgParticle::ParticleSystem::WORLD_COORDINATES);
 
-   particleGeode  = new osg::Geode; 
-   particleGeode->addDrawable (particleSystem.get ());
+   _particleGeode  = new osg::Geode; 
+   _particleGeode->addDrawable (_particleSystem.get ());
    
-   particleSystemUpdater->addParticleSystem (particleSystem.get ());
+   particleSystemUpdater->addParticleSystem (_particleSystem.get ());
    result->particleEffect->addChild (particleSystemUpdater.get ());
-   particleSystem->setDefaultParticleTemplate (particle);
+   _particleSystem->setDefaultParticleTemplate (particle);
    
-   // Emitter setup
-   emitter->setParticleSystem (particleSystem.get ());
+   emitter->setParticleSystem (_particleSystem.get ());
    emitter->setPlacer (lineSegment.get ());
    emitter->setShooter (particleRadialShooter.get ());
    result->particleEffect->addChild (emitter.get ());

@@ -45,7 +45,7 @@ dmz::RenderPluginParticleEffectsOSG::~RenderPluginParticleEffectsOSG () {
    _defTable.empty ();
    _objectTable.empty ();
   // _particleGeode.delete;
-  // _particleSystem.delete;
+  // particleSystem.delete;
 }
 
 
@@ -117,7 +117,7 @@ dmz::RenderPluginParticleEffectsOSG::create_object (
             if (g) { 
             
                g->addChild (os->particleEffect.get ());
-               _core->get_scene ()->addChild (_particleGeode.get ());
+               _core->get_scene ()->addChild (os->particleSystem.get ());
             }
          }
       }
@@ -213,7 +213,7 @@ dmz::RenderPluginParticleEffectsOSG::_create_def_struct (const ObjectType &Type)
       Config particleEffectsList;
 
       if (currentType.get_config ().lookup_all_config (
-            "render.particle-effects", particleEffectsList)) {
+            "particle-effects.effect", particleEffectsList)) {
 
          result = new DefStruct;
          if (_defTable.store (currentType.get_handle (), result)) {
@@ -227,53 +227,59 @@ dmz::RenderPluginParticleEffectsOSG::_create_def_struct (const ObjectType &Type)
 
             while (particleEffectsList.get_next_config (it, particleEffects)) {
 
-               Config particleType;
-               if (
-                     particleEffects.lookup_config ("smoke", particleType) ||
-                     particleEffects.lookup_config ("fire", particleType) ||
-                     particleEffects.lookup_config ("dust", particleType)
-                   ) {
+               Config stateList;
+               
+               if (particleEffects.lookup_all_config (
+                     "state", stateList)) {
+                        
+                  ConfigIterator itState;
+                  Config particleType;
                   
-                  Config offset;
-                  Mask state;
-                  String stateName;
-
-                  const String ResourceName (
-                     config_to_string ("resource", particleType));
-                  const Boolean NoParticleEffect (
-                     config_to_boolean ("none", particleType));
-                  const Boolean StateNameFound (
-                     particleType.lookup_attribute ("state", stateName));
-                  
-                  if (StateNameFound) { _defs.lookup_state (stateName, state); }
-
-                  if (!StateNameFound || state) {
+                  while (stateList.get_next_config (itState, particleType)) {
                      
-                     ParticleEffectStruct *pes = (NoParticleEffect ? &_noParticleEffect :
-                        _create_particle_effect (particleType));  
-                     
-                     if (pes) {
+                     Config offset;
+                     Mask state;
+                     String stateName;
+
+                     const Boolean NoParticleEffect (
+                        config_to_boolean ("none", particleType));
+                     const Boolean StateNameFound (
+                        particleType.lookup_attribute ("name", stateName));
+
+                     if (StateNameFound) { _defs.lookup_state (stateName, state); }
+
+                     if (!StateNameFound || state) {
+                        
+                        _log.info << "inside (!StateNameFound || state)" << endl;
+                        ParticleEffectStruct *pes = (NoParticleEffect ? 
+                           &_noParticleEffect : _create_particle_effect (particleType));  
+                        
+                        if (pes) {
+         
+                           unsigned int switchPlace (StateNameFound ? place : 0);
+                           if (StateNameFound) { place++; }
       
-                        unsigned int switchPlace (StateNameFound ? place : 0);
-                        if (StateNameFound) { place++; }
-   
-                        if (((switchPlace + 1) > 
-                              result->particleEffect->getNumChildren ()) ||
-                              !result->particleEffect->getChild (switchPlace)) {
-   
-                           result->particleEffect->insertChild (switchPlace, 
-                              pes->particleEffect.get ());
-   
-                           if (switchPlace) {
-   
-                              StateStruct *ss (new StateStruct (switchPlace, state));
-   
-                              if (currentState) {
-   
-                                 currentState->next = ss;
-                                 currentState = ss;
+                           if (((switchPlace + 1) > 
+                                 result->particleEffect->getNumChildren ()) ||
+                                 !result->particleEffect->getChild (switchPlace)) {
+      
+                              result->particleEffect->insertChild (switchPlace, 
+                                 pes->particleEffect.get ());
+                                 
+                              result->particleSystem->insertChild (switchPlace, 
+                                 pes->particleGeode.get ());
+      
+                              if (switchPlace) {
+      
+                                 StateStruct *ss (new StateStruct (switchPlace, state));
+      
+                                 if (currentState) {
+      
+                                    currentState->next = ss;
+                                    currentState = ss;
+                                 }
+                                 else { result->stateMap = currentState = ss; }
                               }
-                              else { result->stateMap = currentState = ss; }
                            }
                         }
                      }
@@ -312,19 +318,20 @@ dmz::RenderPluginParticleEffectsOSG::_create_particle_effect (Config &particle_c
 
    const String ResourceName (config_to_string ("resource", particle_config));
    const Boolean NoParticleEffect (config_to_boolean ("none", particle_config));
-   const Boolean StateNameFound (particle_config.lookup_attribute ("state", stateName));
+   const Boolean StateNameFound (particle_config.lookup_attribute ("name", stateName));
 
-   // taking care of particle-system offset config value   
+   // offset particle-system   
    osg::ref_ptr<osg::MatrixTransform> offsetMatrixTransform = new osg::MatrixTransform;
    offsetMatrixTransform->setDataVariance (osg::Object::DYNAMIC);
    offsetMatrixTransform->setMatrix (osg::Matrix::translate (0,0,0));
    
    osgParticle::Particle particle; 
    particle.setSizeRange (osgParticle::rangef (0.01,10.0)); // meters
-   particle.setLifeTime (65); // seconds
+   particle.setLifeTime (15); // seconds
    particle.setMass (0.01); // in kilograms
    
-   _particleSystem = new osgParticle::ParticleSystem;
+   osg::ref_ptr<osgParticle::ParticleSystem> particleSystem =
+      new osgParticle::ParticleSystem;
    
    osg::ref_ptr<osgParticle::ParticleSystemUpdater> particleSystemUpdater = 
       new osgParticle::ParticleSystemUpdater;
@@ -516,7 +523,7 @@ dmz::RenderPluginParticleEffectsOSG::_create_particle_effect (Config &particle_c
                << endl;
             _particleEffectTable.store (foundFile, result);
             
-            _particleSystem->setDefaultAttributes (
+            particleSystem->setDefaultAttributes (
                foundFile.get_buffer (), false, false);
             
          }
@@ -538,17 +545,19 @@ dmz::RenderPluginParticleEffectsOSG::_create_particle_effect (Config &particle_c
    }
    else { _log.info << "Failed finding resource: " << ResourceName << endl; }
 
-   _particleSystem->setParticleScaleReferenceFrame (
+   particleSystem->setParticleScaleReferenceFrame (
       osgParticle::ParticleSystem::WORLD_COORDINATES);
 
-   _particleGeode  = new osg::Geode; 
-   _particleGeode->addDrawable (_particleSystem.get ());
+   result->particleGeode = new osg::Geode;
+   result->particleGeode->addDrawable (particleSystem.get ());
+//   _particleGeode  = new osg::Geode; 
+//   _particleGeode->addDrawable (particleSystem.get ());
    
-   particleSystemUpdater->addParticleSystem (_particleSystem.get ());
+   particleSystemUpdater->addParticleSystem (particleSystem.get ());
    result->particleEffect->addChild (particleSystemUpdater.get ());
-   _particleSystem->setDefaultParticleTemplate (particle);
+   particleSystem->setDefaultParticleTemplate (particle);
    
-   emitter->setParticleSystem (_particleSystem.get ());
+   emitter->setParticleSystem (particleSystem.get ());
    emitter->setPlacer (lineSegment.get ());
    emitter->setShooter (particleRadialShooter.get ());
    result->particleEffect->addChild (emitter.get ());

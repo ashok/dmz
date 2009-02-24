@@ -16,8 +16,7 @@
 
 
 namespace osgParticle { 
-      class Particle; class ExplosionEffect; class ExplosionDebrisEffect;
-      class SmokeEffect; class SmokeTrailEffect; class FireEffect;
+      class Particle;
    }
 
 namespace dmz {
@@ -78,8 +77,9 @@ namespace dmz {
          struct ParticleEffectStruct {
 
             osg::ref_ptr<osg::Group> particleEffect;
+            osg::ref_ptr<osg::Geode> particleGeode;
          };
-         
+                  
          struct StateStruct {
 
             const unsigned int Place;
@@ -98,12 +98,17 @@ namespace dmz {
          struct DefStruct {
 
             osg::ref_ptr<osg::Switch> particleEffect;
+            osg::ref_ptr<osg::Switch> particleSystem;
+            
             StateStruct *stateMap;
 
             DefStruct () : stateMap (0) {
 
                particleEffect = new osg::Switch;
                particleEffect->setDataVariance (osg::Object::DYNAMIC);
+               
+               particleSystem = new osg::Switch;
+               particleSystem->setDataVariance (osg::Object::DYNAMIC);
             }
 
             ~DefStruct () { if (stateMap) { delete stateMap; stateMap = 0; } }
@@ -115,6 +120,7 @@ namespace dmz {
 
             const DefStruct &Def;
             osg::ref_ptr<osg::Switch> particleEffect;
+            osg::ref_ptr<osg::Switch> particleSystem;
 
             ObjectStruct (DefStruct &TheDef) : Def (TheDef) {
 
@@ -122,6 +128,7 @@ namespace dmz {
 
                   osg::CopyOp c;
                   particleEffect = (osg::Switch *)Def.particleEffect->clone (c);
+                  particleSystem = (osg::Switch *)Def.particleSystem->clone (c);
                }
                
             }
@@ -150,8 +157,7 @@ namespace dmz {
          HashTableHandleTemplate<DefStruct> _defTable;
          HashTableHandleTemplate<ObjectStruct> _objectTable;
          
-         osg::ref_ptr<osg::Geode> _particleGeode;
-         osg::ref_ptr<osgParticle::ParticleSystem> _particleSystem;
+         //osg::ref_ptr<osg::Geode> _particleGeode;
 
          RenderModuleCoreOSG *_core;
          ParticleEffectStruct _noParticleEffect;
